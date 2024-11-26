@@ -3,6 +3,16 @@ import { useEffect, useRef, useState } from 'react';
 import { createChart, IChartApi, UTCTimestamp } from 'lightweight-charts';
 import { binanceService } from '@/services/binance';
 
+const TRADING_PAIRS = [
+  'ETHUSDT',
+  'BTCUSDT', 
+  'AVAXUSDT',
+  'SOLUSDT',
+  'RENDERUSDT',
+  'FETUSDT'
+];
+
+
 interface TradeChartProps {
   selectedPair: string;
   onPriceUpdate: (price: number) => void;
@@ -41,7 +51,7 @@ export function TradeChart({ selectedPair, onPriceUpdate }: TradeChartProps) {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const klines = await binanceService.getKlines(selectedPair, '1m');
+        const klines = await binanceService.getKlinesTestnet(selectedPair, '1m');
         const formattedKlines = klines.map(kline => ({
           ...kline,
           time: kline.time / 1000 as UTCTimestamp
@@ -51,13 +61,13 @@ export function TradeChart({ selectedPair, onPriceUpdate }: TradeChartProps) {
           candlestickSeriesRef.current.setData(formattedKlines);
         }
       } catch (error) {
-        console.error('Error loading initial data:', error);
+        console.error('Error loading data:', error);
       }
     };
 
     loadData();
 
-    const ws = binanceService.subscribeToKlines(selectedPair, '1m', (kline) => {
+    const ws = binanceService.subscribeToKlinesTestnet(selectedPair, '1m', (kline) => {
       if (candlestickSeriesRef.current) {
         candlestickSeriesRef.current.update({
           ...kline,
@@ -71,6 +81,8 @@ export function TradeChart({ selectedPair, onPriceUpdate }: TradeChartProps) {
   }, [selectedPair, onPriceUpdate]);
 
   return (
-    <div ref={chartContainerRef} className="w-full h-[400px]" />
+    <div>
+      <div ref={chartContainerRef} className="w-full h-[400px]" />
+    </div>
   );
 } 

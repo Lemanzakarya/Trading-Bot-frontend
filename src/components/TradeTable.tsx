@@ -39,7 +39,7 @@ export function TradeTable({ selectedPair }: TradeTableProps) {
   return (
     <div className="bg-gray-800 rounded-lg p-4">
       <h2 className="text-xl font-bold mb-4">Market Trades</h2>
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto mx-2 h-[400px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-800 [&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb]:rounded">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-gray-400">

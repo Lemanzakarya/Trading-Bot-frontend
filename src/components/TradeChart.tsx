@@ -3,30 +3,22 @@ import { useEffect, useRef, useState } from 'react';
 import { createChart, IChartApi, UTCTimestamp } from 'lightweight-charts';
 import { binanceService } from '@/services/binance';
 
-const TRADING_PAIRS = [
-  'ETHUSDT',
-  'BTCUSDT', 
-  'AVAXUSDT',
-  'SOLUSDT',
-  'RENDERUSDT',
-  'FETUSDT'
-];
-
-
 interface TradeChartProps {
   selectedPair: string;
   onPriceUpdate: (price: number) => void;
 }
 
-export function TradeChart({ selectedPair}: TradeChartProps) {
+export function TradeChart({ selectedPair, onPriceUpdate }: TradeChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candlestickSeriesRef = useRef<any>(null);
   const [dateRange, setDateRange] = useState({
-    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Son 30 gün
+    startDate: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000), // Last 4 days
     endDate: new Date()
   });
-  const [selectedTimeframe, setSelectedTimeframe] = useState('1d');
+  const [selectedTimeframe, setSelectedTimeframe] = useState('4h');
+  const [isBotRunning, setIsBotRunning] = useState(false);
+  const [lastLoadedTimeframe, setLastLoadedTimeframe] = useState('4h');
 
   const timeframes = [
     { value: '1m', label: '1 Minute' },
@@ -56,23 +48,36 @@ export function TradeChart({ selectedPair}: TradeChartProps) {
     chartRef.current = chart;
     candlestickSeriesRef.current = chart.addCandlestickSeries();
 
+    loadHistoricalData();
+
     return () => {
       chart.remove();
       chartRef.current = null;
     };
   }, []);
 
+  useEffect(() => {
+    loadHistoricalData();
+  }, [selectedPair, selectedTimeframe, dateRange.startDate, dateRange.endDate]);
+
+  useEffect(() => {
+    if (isBotRunning) {
+      const ws = binanceService.subscribeToKlines(selectedPair, '1m', (kline) => {
+        if (candlestickSeriesRef.current) {
+          candlestickSeriesRef.current.update(kline);
+        }
+        onPriceUpdate(kline.close);
+        checkForTradingSignals(kline);
+      });
+
+      return () => ws.close();
+    }
+  }, [isBotRunning, selectedPair]);
+
   const loadHistoricalData = async () => {
     try {
-      const startTimestamp = Math.floor(dateRange.startDate.getTime());
-      const endTimestamp = Math.floor(dateRange.endDate.getTime());
-
-      console.log('Fetching data for range:', {
-        start: new Date(startTimestamp).toISOString(),
-        end: new Date(endTimestamp).toISOString(),
-        pair: selectedPair,
-        timeframe: selectedTimeframe
-      });
+      const startTimestamp = dateRange.startDate.getTime();
+      const endTimestamp = dateRange.endDate.getTime();
 
       const klines = await binanceService.getHistoricalKlines(
         selectedPair,
@@ -82,31 +87,55 @@ export function TradeChart({ selectedPair}: TradeChartProps) {
       );
 
       if (klines && klines.length > 0) {
-        const formattedKlines = klines.map((kline: { time: number }) => ({
+        const formattedKlines = klines.map((kline: { time: number, close: number }) => ({
           ...kline,
           time: kline.time / 1000 as UTCTimestamp
         }));
 
-        console.log(`Loaded ${formattedKlines.length} candles`);
+        console.log(`Loaded ${formattedKlines.length} candles from ${new Date(startTimestamp).toLocaleDateString()} to ${new Date(endTimestamp).toLocaleDateString()}`);
         
         if (candlestickSeriesRef.current) {
           candlestickSeriesRef.current.setData(formattedKlines);
         }
-      } else {
-        console.warn('No data received from Binance API');
+
+        if (chartRef.current) {
+          const timeScale = chartRef.current.timeScale();
+          timeScale.setVisibleRange({
+            from: (startTimestamp / 1000) as UTCTimestamp,
+            to: (endTimestamp / 1000) as UTCTimestamp
+          });
+        }
+
+        setLastLoadedTimeframe(selectedTimeframe);
+
+        const latestKline = formattedKlines[formattedKlines.length - 1];
+        onPriceUpdate(latestKline.close);
       }
     } catch (error) {
       console.error('Error loading historical data:', error);
     }
   };
 
-  useEffect(() => {
-    loadHistoricalData();
-  }, [selectedPair, dateRange, selectedTimeframe]);
+  const toggleBot = () => {
+    setIsBotRunning(!isBotRunning);
+  };
+
+  const checkForTradingSignals = (kline: any) => {
+    // Implement your trading strategy here
+    // This is a placeholder for demonstration
+    const randomSignal = Math.random() > 0.5 ? 'BUY' : 'SELL';
+    if (randomSignal === 'BUY') {
+      console.log(`BUY signal at ${kline.close}`);
+      // Call your buy function here
+    } else {
+      console.log(`SELL signal at ${kline.close}`);
+      // Call your sell function here
+    }
+  };
 
   return (
-    <div className="p-2 pt-1 bg-gray-800 rounded-lg shadow-lg">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
+    <div className="p-4 bg-gray-800 rounded-lg">
+      <div className="grid grid-cols-3 gap-4 mb-4">
         <div className="space-y-1">
           <label className="block text-xs font-medium text-gray-300">Start Date</label>
           <input
@@ -116,7 +145,7 @@ export function TradeChart({ selectedPair}: TradeChartProps) {
               ...prev,
               startDate: new Date(e.target.value)
             }))}
-            className="w-full h-8 bg-gray-700 border border-gray-600 rounded-md px-2 text-xs text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+            className="w-full h-8 bg-gray-700 border border-gray-600 rounded-md px-2 text-xs text-gray-200"
           />
         </div>
         
@@ -129,7 +158,7 @@ export function TradeChart({ selectedPair}: TradeChartProps) {
               ...prev,
               endDate: new Date(e.target.value)
             }))}
-            className="w-full h-8 bg-gray-700 border border-gray-600 rounded-md px-2 text-xs text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+            className="w-full h-8 bg-gray-700 border border-gray-600 rounded-md px-2 text-xs text-gray-200"
           />
         </div>
 
@@ -138,27 +167,12 @@ export function TradeChart({ selectedPair}: TradeChartProps) {
           <select
             value={selectedTimeframe}
             onChange={(e) => setSelectedTimeframe(e.target.value)}
-            className="w-full h-8 bg-gray-700 border border-gray-600 rounded-md px-2 text-xs text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+            className="w-full h-8 bg-gray-700 border border-gray-600 rounded-md px-2 text-xs text-gray-200"
           >
             {timeframes.map(tf => (
               <option key={tf.value} value={tf.value}>{tf.label}</option>
             ))}
           </select>
-        </div>
-
-        <div className="space-y-1">
-          <label className="block text-xs font-medium text-gray-300">Action</label>
-          <button
-            onClick={loadHistoricalData}
-            className="w-full h-8 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-medium rounded-md shadow-lg transition-all duration-200 ease-in-out hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-800 active:scale-[0.98]"
-          >
-            <div className="flex items-center justify-center space-x-1.5">
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              <span>Load Data</span>
-            </div>
-          </button>
         </div>
       </div>
 

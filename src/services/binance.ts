@@ -62,14 +62,14 @@ class BinanceService {
   }
 
   // WebSocket bağlantısı kur
-  subscribeToKlines(symbol: string, interval: string, callback: (data: Kline) => void) {
+  subscribeToKlines(symbol: string, interval: string, callback: (data: any) => void) {
     const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@kline_${interval}`);
     
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       const k = data.k;
       
-      const kline: Kline = {
+      const kline = {
         time: k.t / 1000,
         open: parseFloat(k.o),
         high: parseFloat(k.h),
@@ -172,18 +172,30 @@ class BinanceService {
     endTime: number
   ) {
     try {
-      const response = await fetch(
-        `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&startTime=${startTime}&endTime=${endTime}&limit=1000`
-      );
+      // Binance'in tek seferde döndürebileceği maksimum veri sayısı 1000'dir
+      // Bu yüzden tarihleri parçalara ayırıp birden fazla istek yapabiliriz
+      let allKlines: any[] = [];
+      let currentStartTime = startTime;
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      while (currentStartTime < endTime) {
+        const response = await fetch(
+          `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&startTime=${currentStartTime}&endTime=${endTime}&limit=1000`
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.length === 0) break;
+
+        allKlines = [...allKlines, ...data];
+        currentStartTime = data[data.length - 1][0] + 1; // Bir sonraki mumdan devam et
       }
 
-      const data = await response.json();
-
       // Binance API'den gelen veriyi dönüştürüyoruz
-      return data.map((d: any[]) => ({
+      return allKlines.map((d: any[]) => ({
         time: parseInt(d[0]), // Opening time
         open: parseFloat(d[1]),
         high: parseFloat(d[2]),

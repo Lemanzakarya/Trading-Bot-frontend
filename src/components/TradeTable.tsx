@@ -1,14 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { binanceService } from '@/services/binance';
-
-interface Trade {
-  id: number;
-  price: number;
-  quantity: number;
-  time: number;
-  isBuyerMaker: boolean;
-}
+import { tradingService, Trade } from '@/services/trading';
 
 interface TradeTableProps {
   selectedPair: string;
@@ -18,35 +10,43 @@ export function TradeTable({ selectedPair }: TradeTableProps) {
   const [trades, setTrades] = useState<Trade[]>([]);
 
   useEffect(() => {
-    // WebSocket bağlantısı oluşturuluyor
-    const ws = binanceService.subscribeToTrades(selectedPair, (trade) => {
-      setTrades((prevTrades) => {
-        const newTrade = {
-          id: trade.t,
-          price: parseFloat(trade.p),
-          quantity: parseFloat(trade.q),
-          time: trade.T,
-          isBuyerMaker: trade.m
-        };
-        
-        return [newTrade, ...prevTrades].slice(0, 20);
-      });
-    });
+    let isSubscribed = true;
 
-    return () => ws.close();
+    const initializeTradeTable = async () => {
+      try {
+        await tradingService.connect();
+        await tradingService.selectSymbol(selectedPair);
+        
+        await tradingService.subscribeToTrades(selectedPair, (trade) => {
+          if (isSubscribed) {
+            setTrades(prevTrades => [trade, ...prevTrades].slice(0, 20));
+          }
+        });
+      } catch (error) {
+        console.error('Trade table initialization error:', error);
+      }
+    };
+
+    initializeTradeTable();
+
+    return () => {
+      isSubscribed = false;
+      tradingService.unsubscribeFromTrades();
+      tradingService.disconnect();
+    };
   }, [selectedPair]);
 
   return (
-    <div className="bg-gray-800 rounded-lg p-4 h-[655px]">
-      <h2 className="text-xl font-bold mb-4">Market Trades</h2>
-      <div className="overflow-x-auto mx-2 h-[560px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-800 [&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb]:rounded">
+    <div className="bg-gray-800 rounded-lg p-4">
+      <h2 className="text-xl font-bold mb-4">Son İşlemler</h2>
+      <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-gray-400">
-              <th className="text-left py-2">Price</th>
-              <th className="text-right py-2">Amount</th>
-              <th className="text-right py-2">Total</th>
-              <th className="text-right py-2">Time</th>
+              <th className="text-left py-2">Fiyat</th>
+              <th className="text-right py-2">Miktar</th>
+              <th className="text-right py-2">Toplam</th>
+              <th className="text-right py-2">Zaman</th>
             </tr>
           </thead>
           <tbody>

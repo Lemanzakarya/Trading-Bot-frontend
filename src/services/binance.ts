@@ -164,6 +164,38 @@ class BinanceService {
       throw error;
     }
   }
+
+  async getHistoricalKlines(
+    symbol: string,
+    interval: string,
+    startTime: number,
+    endTime: number
+  ) {
+    try {
+      const response = await fetch(
+        `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&startTime=${startTime}&endTime=${endTime}&limit=1000`
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Binance API'den gelen veriyi dönüştürüyoruz
+      return data.map((d: any[]) => ({
+        time: parseInt(d[0]), // Opening time
+        open: parseFloat(d[1]),
+        high: parseFloat(d[2]),
+        low: parseFloat(d[3]),
+        close: parseFloat(d[4]),
+        volume: parseFloat(d[5]),
+      }));
+    } catch (error) {
+      console.error('Error fetching klines:', error);
+      throw error;
+    }
+  }
 }
 
 export const binanceService = new BinanceService(); 

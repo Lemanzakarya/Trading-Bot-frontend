@@ -18,7 +18,7 @@ export function TradeTable({ selectedPair }: TradeTableProps) {
   const [trades, setTrades] = useState<Trade[]>([]);
 
   useEffect(() => {
-    // WebSocket bağlantısını binanceService üzerinden yap
+    // WebSocket bağlantısı oluşturuluyor
     const ws = binanceService.subscribeToTrades(selectedPair, (trade) => {
       setTrades((prevTrades) => {
         const newTrade = {
@@ -37,9 +37,9 @@ export function TradeTable({ selectedPair }: TradeTableProps) {
   }, [selectedPair]);
 
   return (
-    <div className="bg-gray-800 rounded-lg p-4">
+    <div className="bg-gray-800 rounded-lg p-4 h-[655px]">
       <h2 className="text-xl font-bold mb-4">Market Trades</h2>
-      <div className="overflow-x-auto mx-2 h-[400px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-800 [&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb]:rounded">
+      <div className="overflow-x-auto mx-2 h-[560px] overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-gray-800 [&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb]:rounded">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-gray-400">

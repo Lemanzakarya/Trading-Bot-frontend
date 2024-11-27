@@ -19,8 +19,8 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <main className="container mx-auto px-6 py-6 max-w-[1920px]">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-4">Crypto Trading Bot </h1>
+        <div className="text-center mb-4">
+          <h1 className="text-4xl font-bold mb-2">Crypto Trading Bot </h1>
           <p className="text-gray-300">Live Trading Signals</p>
         </div>
 

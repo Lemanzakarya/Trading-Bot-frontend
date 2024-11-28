@@ -9,6 +9,8 @@ interface Kline {
 
 class BinanceService {
   private baseUrl = 'https://api.binance.com/api/v3';
+  private testnetUrl = 'https://testnet.binance.vision/api/v3';
+  private testnetWsUrl = 'wss://testnet.binance.vision/ws';
 
   // Candlestick verilerini getir
   async getKlines(symbol: string, interval: string): Promise<Kline[]> {
@@ -60,23 +62,21 @@ class BinanceService {
   }
 
   // WebSocket bağlantısı kur
-  subscribeToKlines(symbol: string, interval: string, callback: (data: Kline) => void) {
+  subscribeToKlines(symbol: string, interval: string, callback: (data: any) => void): WebSocket {
     const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@kline_${interval}`);
     
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      const k = data.k;
-      
-      const kline: Kline = {
-        time: k.t / 1000,
-        open: parseFloat(k.o),
-        high: parseFloat(k.h),
-        low: parseFloat(k.l),
-        close: parseFloat(k.c),
-        volume: parseFloat(k.v)
-      };
-      
-      callback(kline);
+      if (data.k) {
+        const kline = {
+          time: data.k.t,
+          open: parseFloat(data.k.o),
+          high: parseFloat(data.k.h),
+          low: parseFloat(data.k.l),
+          close: parseFloat(data.k.c)
+        };
+        callback(kline);
+      }
     };
 
     return ws;
@@ -91,6 +91,108 @@ class BinanceService {
     };
 
     return ws;
+  }
+
+  // Test ağı için candlestick verilerini getir
+  async getKlinesTestnet(symbol: string, interval: string): Promise<Kline[]> {
+    try {
+      const response = await fetch(
+        `${this.testnetUrl}/klines?symbol=${symbol}&interval=${interval}&limit=1000`
+      );
+      const data = await response.json();
+      
+      return data.map((d: any) => ({
+        time: d[0],
+        open: parseFloat(d[1]),
+        high: parseFloat(d[2]),
+        low: parseFloat(d[3]),
+        close: parseFloat(d[4]),
+        volume: parseFloat(d[5])
+      }));
+    } catch (error) {
+      console.error('Error fetching testnet klines:', error);
+      throw error;
+    }
+  }
+
+  // Test ağı WebSocket bağlantısı
+  subscribeToKlinesTestnet(symbol: string, interval: string, callback: (data: Kline) => void) {
+    const ws = new WebSocket(`${this.testnetWsUrl}/${symbol.toLowerCase()}@kline_${interval}`);
+    
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      const k = data.k;
+      
+      const kline: Kline = {
+        time: k.t,
+        open: parseFloat(k.o),
+        high: parseFloat(k.h),
+        low: parseFloat(k.l),
+        close: parseFloat(k.c),
+        volume: parseFloat(k.v)
+      };
+      
+      callback(kline);
+    };
+
+    return ws;
+  }
+
+  // Test ağında işlem yap
+  async createOrder(symbol: string, side: 'BUY' | 'SELL', quantity: number) {
+    try {
+      const response = await fetch(`${this.testnetUrl}/order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // API anahtarlarını ekle
+          'X-MBX-APIKEY': process.env.BINANCE_TEST_API_KEY || ''
+        },
+        body: JSON.stringify({
+          symbol,
+          side,
+          type: 'MARKET',
+          quantity
+        })
+      });
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating order:', error);
+      throw error;
+    }
+  }
+
+  async getHistoricalKlines(
+    symbol: string,
+    interval: string,
+    startTime: number,
+    endTime: number
+  ) {
+    try {
+      const response = await fetch(
+        `https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&startTime=${startTime}&endTime=${endTime}&limit=1000`
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Binance API'den gelen veriyi dönüştürüyoruz
+      return data.map((d: any[]) => ({
+        time: parseInt(d[0]), // Opening time
+        open: parseFloat(d[1]),
+        high: parseFloat(d[2]),
+        low: parseFloat(d[3]),
+        close: parseFloat(d[4]),
+        volume: parseFloat(d[5]),
+      }));
+    } catch (error) {
+      console.error('Error fetching klines:', error);
+      throw error;
+    }
   }
 }
 

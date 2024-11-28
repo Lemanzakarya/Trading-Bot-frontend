@@ -36,26 +36,27 @@ export function TradeTable({ selectedPair }: TradeTableProps) {
       return;
     }
 
-    const symbol = selectedPair.replace("USDT", "");
+    const symbol = selectedPair.toUpperCase();
     console.log("🚀 Starting trading for:", symbol);
 
     const tradingParams = {
       symbol: symbol,
+      interval: '5m',
       indicators: {
         rsi: {
           enabled: true,
-          period: 14,
+          period: 9,
         },
         bollinger: {
           enabled: true,
           period: 20,
-          deviation: 2.0,
+          deviation: 2.2,
         },
         macd: {
           enabled: true,
-          fastPeriod: 12,
-          slowPeriod: 26,
-          signalPeriod: 9,
+          fast_period: 8,
+          slow_period: 17,
+          signal_period: 9,
         },
       },
     };
@@ -94,12 +95,12 @@ export function TradeTable({ selectedPair }: TradeTableProps) {
     if (process.env.NODE_ENV === "development") {
       const testTrade: Trade = {
         action: "BUY",
-        symbol: selectedPair,
+        symbol: selectedPair || "BTCUSDT",
         price: 50000,
         balance: 10000,
         position: "buy",
         pnl: 0,
-        timestamp: Date.now(),
+        timestamp: Date.now()
       };
       handleTradeUpdate(testTrade);
     }
@@ -158,10 +159,14 @@ export function TradeTable({ selectedPair }: TradeTableProps) {
                       : "text-gray-400"
                   }`}
                 >
-                  {trade.action}
+                  {trade.action || "N/A"}
                 </td>
-                <td className="text-right py-2">${trade.price.toFixed(2)}</td>
-                <td className="text-right py-2">${trade.balance.toFixed(2)}</td>
+                <td className="text-right py-2">
+                  ${(trade.price || 0).toFixed(2)}
+                </td>
+                <td className="text-right py-2">
+                  ${(trade.balance || 0).toFixed(2)}
+                </td>
                 <td
                   className={`text-right py-2 ${
                     (trade.pnl || 0) > 0
@@ -174,7 +179,9 @@ export function TradeTable({ selectedPair }: TradeTableProps) {
                   ${(trade.pnl || 0).toFixed(2)}
                 </td>
                 <td className="text-right py-2">
-                  {new Date(trade.timestamp).toLocaleTimeString()}
+                  {trade.timestamp
+                    ? new Date(trade.timestamp).toLocaleTimeString()
+                    : "N/A"}
                 </td>
               </tr>
             ))}
